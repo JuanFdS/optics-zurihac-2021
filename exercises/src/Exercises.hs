@@ -14,22 +14,27 @@ experiment with.
 data Person = MkPerson  {  _personName  :: String
                         ,  _personAge   :: Int
                         ,  _personPets  :: [Pet] }
-  deriving Show
+  deriving (Show, Eq)
 
 data Pet = MkPet  {  _petName   :: String
                   ,  _petAge    :: Int }
-  deriving Show
+  deriving (Show, Eq)
 
-alice, bob :: Person
+alice, bob, pepe :: Person
 alice = MkPerson { _personName = "Alice", _personAge = 65, _personPets = [] }
 bob = MkPerson { _personName = "Bob"
                , _personAge  = 42
                , _personPets = [ MkPet { _petName = "Mr Scruffy", _petAge = 3 } ]
                }
+pepe = MkPerson { _personName = "Pepe"
+               , _personAge  = 2
+               , _personPets = [ MkPet { _petName = "pepita", _petAge = 3 },
+                                 MkPet { _petName = "nala", _petAge = 5 }
+                               ]
+               }
 
 $(makeLenses ''Person)
 $(makeLenses ''Pet)
-
 
 {-
 The 'ages' fold extracts all the ages containined within a 'Person'.
@@ -50,7 +55,10 @@ ages :: Fold Person Int
 ages = personAge `summing` (personPets % folded % petAge)
 
 anyOlderThan :: Int -> Person -> Bool
-anyOlderThan = undefined
+anyOlderThan age person = anyOf ages (> age) person
+
+anyOlderThan' :: Int -> Person -> Bool
+anyOlderThan' age person = has (ages % filtered (> age)) person
 
 
 {-
@@ -68,7 +76,7 @@ anyOlderThan = undefined
 -}
 
 petsOlderThan :: Int -> Fold Person Pet
-petsOlderThan = undefined
+petsOlderThan age = personPets % folded % filtered ((>age) . _petAge)
 
 petNamesOlderThan :: Int -> Person -> [String]
 petNamesOlderThan = undefined
