@@ -23,3 +23,32 @@ correrTests = hspec $ do
     describe "petsOlderThan" $ do
         it "returns a fold with the pets from a person older than a certain age" $ do
             toListOf (petsOlderThan 4) pepe `shouldBe` [MkPet { _petName = "nala", _petAge = 5 }]
+    describe "petNamesOlderThan" $ do
+        it "returns a fold with the pet names from a person older than a certain age" $ do
+            petNamesOlderThan 4 pepe `shouldBe` ["nala"]
+    describe "names" $ do
+        it "returns the name of the person along with the names of their pets" $ do
+            toListOf names pepe `shouldBe` ["Pepe", "pepita", "nala"]
+    describe "capitaliseNames" $ do
+        it "returns the name of the person along with the names of their pets, capitalised" $ do
+            capitaliseNames bob `shouldBe` MkPerson { _personName = "BOB"
+               , _personAge  = 42
+               , _personPets = [ MkPet { _petName = "MR SCRUFFY", _petAge = 3 } ]
+               }
+    describe "leaves" $ do
+        it "traverses through the leaf labels of a tree" $ do
+            toListOf leaves treeExample  `shouldBe` [3, 2, 4, 1, 2]
+    describe "preorder" $ do
+        it "traverses through the nodes in pre-order" $ do
+            toListOf preorder treeExample `shouldBe` ['b', 'a', 'c', 'd']
+    describe "attachIndices" $ do
+        it "traverses through the nodes in pre-order" $ do
+            attachIndices leaves treeExample `shouldBe` Node (Node (Node (Leaf (0, 3))
+                            'c'
+                            (Leaf (1, 2)))
+                    'a'
+                    (Leaf (2, 4)))
+                'b'
+                (Node (Leaf (3, 1))
+                    'd'
+                    (Leaf (4, 2)))

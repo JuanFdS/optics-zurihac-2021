@@ -1,10 +1,13 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ApplicativeDo #-}
 {-# OPTIONS_GHC -Wall #-}
 
 module Exercises where
 
 import Optics.Core
 import Optics.TH
+import Data.Char
+import Control.Monad.State
 
 {-
 Here are some example data types from the slides, and some test data to
@@ -76,11 +79,10 @@ anyOlderThan' age person = has (ages % filtered (> age)) person
 -}
 
 petsOlderThan :: Int -> Fold Person Pet
-petsOlderThan age = personPets % folded % filtered ((>age) . _petAge)
+petsOlderThan age = personPets % folded % (filtered ((> age) . (view petAge)))
 
 petNamesOlderThan :: Int -> Person -> [String]
-petNamesOlderThan = undefined
-
+petNamesOlderThan age person = toListOf (petsOlderThan age % petName) person
 
 
 {-
@@ -96,10 +98,10 @@ petNamesOlderThan = undefined
 -}
 
 names :: Traversal' Person String
-names = undefined
+names = personName `adjoin` (personPets % traversed % petName)
 
 capitaliseNames :: Person -> Person
-capitaliseNames = undefined
+capitaliseNames person = over (names % traversed) toUpper person
 
 
 {-
@@ -119,8 +121,12 @@ capitaliseNames = undefined
 -}
 
 replaceNames :: [Person] -> IO [Person]
-replaceNames = undefined
-
+replaceNames people = traverseOf (traversed % names) promptForName people
+  where
+    promptForName :: String -> IO String
+    promptForName currentName = do
+      putStr $ "Replacement for " ++ currentName ++ ": "
+      getLine
 
 
 {-
@@ -162,7 +168,7 @@ Here is a datatype of binary trees with labels at the nodes and leaves.
 
 data Tree a b = Leaf a
               | Node (Tree a b) b (Tree a b)
-  deriving Show
+  deriving (Show, Eq)
 
 treeExample :: Tree Int Char
 treeExample =
@@ -177,21 +183,58 @@ treeExample =
                (Leaf 2))
 
 leaves :: Traversal (Tree a b) (Tree a' b) a a'
-leaves = undefined
-
+leaves = traversalVL go
+  where
+    go f (Leaf a) = fmap Leaf (f a)
+    go f (Node t1 b t2) = Node <$> go f t1 <*> pure b <*> go f t2
 
 preorder, inorder, postorder :: Traversal (Tree a b) (Tree a b') b b'
 
-preorder = undefined
+{- preorder = traversalVL go
+  where
+    go f (Leaf a) = pure $ Leaf a
+    go f (Node t1 b t2) = do
+      b' <- f b
+      t1' <- go f t1
+      t2' <- go f t2
+      pure $ Node t1' b' t2' -}
 
-inorder = undefined
+preorder = traversalVL go
+  where
+    go f (Leaf a) = pure $ Leaf a
+    go f (Node t1 b t2) = flip Node <$> f b <*> go f t1 <*> go f t2
+    -- go f (Node t1 b t2) = (\v t1 t2 -> Node t1 v t2) <$> f b <*> go f t1 <*> go f t2
 
-postorder = undefined
+inorder = traversalVL go
+  where
+    go f (Leaf a) = pure $ Leaf a
+    go f (Node t1 b t2) = do
+      t1' <- go f t1
+      b' <- f b
+      t2' <- go f t2
+      pure $ Node t1' b' t2'
+
+postorder = traversalVL go
+  where
+    go f (Leaf a) = pure $ Leaf a
+    go f (Node t1 b t2) = do
+      t1' <- go f t1
+      t2' <- go f t2
+      b' <- f b
+      pure $ Node t1' b' t2'
 
 
 attachIndices :: Num e => Traversal s t a (e, a) -> s -> t
-attachIndices = undefined
+attachIndices traversal tree = evalState (traverseOf traversal addIndex tree) 0
 
+{- addIndex :: Num e => a -> State e (e, a)
+addIndex el = do
+  currentIndex <- get
+  put $ currentIndex + 1
+  pure $ (currentIndex, el) -}
+
+addIndex :: Num e => a -> State e (e, a)
+addIndex el = state (\s -> ((s, el), s + 1))
 
 
 {-
