@@ -52,3 +52,11 @@ correrTests = hspec $ do
                 (Node (Leaf (3, 1))
                     'd'
                     (Leaf (4, 2)))
+
+    describe "dubiousLens" $ do
+        it "breaks the law (?" $ do
+            over dubiousLens id (MkDubious 5 "hi") `shouldBe` MkDubious 6 "hi" 
+
+    describe "traverseDuplicated" $ do
+        it "visits the value in Duplicated twice" $ do
+            toListOf traverseDuplicated (MkDuplicated 5) `shouldBe` [5, 5] 

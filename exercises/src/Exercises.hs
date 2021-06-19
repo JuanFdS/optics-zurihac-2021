@@ -1,6 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ApplicativeDo #-}
 {-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 
 module Exercises where
 
@@ -201,13 +203,13 @@ preorder, inorder, postorder :: Traversal (Tree a b) (Tree a b') b b'
 
 preorder = traversalVL go
   where
-    go f (Leaf a) = pure $ Leaf a
+    go _ (Leaf a) = pure $ Leaf a
     go f (Node t1 b t2) = flip Node <$> f b <*> go f t1 <*> go f t2
     -- go f (Node t1 b t2) = (\v t1 t2 -> Node t1 v t2) <$> f b <*> go f t1 <*> go f t2
 
 inorder = traversalVL go
   where
-    go f (Leaf a) = pure $ Leaf a
+    go _ (Leaf a) = pure $ Leaf a
     go f (Node t1 b t2) = do
       t1' <- go f t1
       b' <- f b
@@ -261,7 +263,7 @@ children.
 data RTree a = MkRTree { _rtreeLabel :: a
                        , _rtreeChildren :: [RTree a]
                        }
-  deriving Show
+  deriving (Show, Traversable, Foldable, Functor)
 
 $(makeLenses ''RTree)
 
@@ -269,13 +271,19 @@ rtreeExample :: RTree Char
 rtreeExample = MkRTree 'a' [MkRTree 'b' [], MkRTree 'c' [MkRTree 'd' []], MkRTree 'e' []]
 
 rtreeLabels :: Traversal (RTree a) (RTree b) a b
-rtreeLabels = undefined
+rtreeLabels = traversalVL go
+  where
+    go :: Applicative f => (a -> f b) -> RTree a -> f (RTree b)
+    go f (MkRTree label children) = do
+      label' <- f label
+      children' <- traverse (go f) children
+      pure $ MkRTree label' children'
 
 rtreeLabels' :: Traversal' (RTree a) a
-rtreeLabels' = undefined
+rtreeLabels' = rtreeLabel `adjoin` (rtreeChildren % traversed % rtreeLabels')
 
-
-
+rtreeLabels'' :: Traversal (RTree a) (RTree b) a b
+rtreeLabels'' = traversalVL traverse
 {-
  * Define a "lens" focused on the value stored in 'Dubious', that uses the 'Int'
   field to count the number of times the structure has been accessed.
@@ -287,17 +295,23 @@ rtreeLabels' = undefined
 -}
 
 data Dubious a = MkDubious Int a
-  deriving Show
+  deriving (Show, Eq)
 
 dubiousLens :: Lens (Dubious a) (Dubious b) a b
-dubiousLens = undefined
+dubiousLens = lensVL go
+  where
+    go :: Functor f => (a -> f b) -> Dubious a -> f (Dubious b)
+    go f (MkDubious count value) = MkDubious (count + 1) <$> f value
 
 
 data Duplicated a = MkDuplicated a
   deriving Show
 
 traverseDuplicated :: Traversal' (Duplicated a) a
-traverseDuplicated = undefined
+traverseDuplicated = traversalVL g
+  where
+    g :: Applicative f => (a -> f a) -> Duplicated a -> f (Duplicated a)
+    g f (MkDuplicated x) = (const MkDuplicated <$> f x) <*> f x
 
 
 
